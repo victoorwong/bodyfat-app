@@ -1,0 +1,56 @@
+export type Sex = 'male' | 'female';
+
+export interface UserProfile {
+  height: number; // cm
+  weight: number; // kg
+  age: number;
+  sex: Sex;
+}
+
+export type BodyFatCategory =
+  | 'Essential Fat'
+  | 'Athletes'
+  | 'Fitness'
+  | 'Average'
+  | 'Obese';
+
+export type ConfidenceLevel = 'low' | 'medium' | 'high';
+
+export interface AnalysisResult {
+  bodyFat: number;
+  category: BodyFatCategory;
+  visualIndicators: string[];
+  healthContext: string;
+  confidence: ConfidenceLevel;
+  recommendations: string[];
+}
+
+export interface NormalizationResult {
+  uri: string;
+  width: number;
+  height: number;
+  qualityScore: number; // 0-1
+  qualityIssues: string[];
+  passed: boolean;
+}
+
+export interface Assessment {
+  id: string;
+  createdAt: string; // ISO date string
+  originalUri: string;
+  normalizedUri: string;
+  backNormalizedUri?: string;
+  userProfile: UserProfile;
+  result: AnalysisResult;
+}
+
+export type RootStackParamList = {
+  Home: undefined;
+  Camera: { step: 'front' | 'back' };
+  Review: { photoUri: string; step: 'front' | 'back' };
+  Analysis: undefined;
+  Results: { assessmentId: string };
+  History: undefined;
+  Compare: undefined;
+  Progress: undefined;
+};
