@@ -25,6 +25,20 @@ export interface AnalysisResult {
   recommendations: string[];
 }
 
+export interface ComparisonMetric {
+  label: string;
+  before: string;
+  after: string;
+  change: string;
+  improved: boolean;
+}
+
+export interface ComparisonAnalysis {
+  summary: string;
+  metrics: ComparisonMetric[];
+  observations: string[];
+}
+
 export interface NormalizationResult {
   uri: string;
   width: number;
@@ -45,6 +59,7 @@ export interface Assessment {
 }
 
 export type RootStackParamList = {
+  Main: undefined;
   Home: undefined;
   Camera: { step: 'front' | 'back' };
   Review: { photoUri: string; step: 'front' | 'back' };

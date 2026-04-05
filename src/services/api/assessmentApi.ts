@@ -1,4 +1,4 @@
-import { AnalysisResult, UserProfile } from '../../types';
+import { AnalysisResult, ComparisonAnalysis, UserProfile } from '../../types';
 
 const SERVER_URL = 'http://192.168.1.73:3000';
 
@@ -20,4 +20,35 @@ export async function analyzeBodyComposition(
 
   const data = await response.json();
   return data as AnalysisResult;
+}
+
+export async function compareAssessments(
+  beforeFrontBase64: string,
+  afterFrontBase64: string,
+  beforeResult: AnalysisResult,
+  afterResult: AnalysisResult,
+  userProfile?: UserProfile,
+  beforeBackBase64?: string,
+  afterBackBase64?: string,
+): Promise<ComparisonAnalysis> {
+  const response = await fetch(`${SERVER_URL}/api/compare`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      beforeFrontBase64,
+      beforeBackBase64,
+      afterFrontBase64,
+      afterBackBase64,
+      beforeResult,
+      afterResult,
+      userProfile,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Unknown server error' }));
+    throw new Error(error.message ?? `Server error: ${response.status}`);
+  }
+
+  return response.json() as Promise<ComparisonAnalysis>;
 }

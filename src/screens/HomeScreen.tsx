@@ -56,7 +56,7 @@ function getBfSegments(sex: string) {
 }
 
 export default function HomeScreen({ navigation }: Props) {
-  const { theme, isDark, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const { profile, loadProfile, setProfile } = useUserStore();
   const { assessments, loadHistory } = useHistoryStore();
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -107,9 +107,6 @@ export default function HomeScreen({ navigation }: Props) {
             <Text style={s.appName}>BodyComp AI</Text>
           </View>
           <View style={s.headerActions}>
-            <TouchableOpacity onPress={toggleTheme} style={s.iconBtn}>
-              <Text style={s.iconBtnText}>{isDark ? '☀️' : '🌙'}</Text>
-            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setShowProfileModal(true)}
               style={s.profileBtn}
@@ -193,28 +190,19 @@ export default function HomeScreen({ navigation }: Props) {
           </View>
         )}
 
-        {/* Secondary actions */}
-        <View style={s.secondaryRow}>
-          <TouchableOpacity
-            style={s.secondaryBtn}
-            onPress={() => navigation.navigate('History')}
-          >
-            <Text style={s.secondaryBtnText}>History</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={s.secondaryBtn}
-            onPress={() => navigation.navigate('Progress')}
-          >
-            <Text style={s.secondaryBtnText}>Progress</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Primary CTA */}
         <TouchableOpacity
           style={s.primaryBtn}
           onPress={() => navigation.navigate('Camera', { step: 'front' })}
         >
           <Text style={s.primaryBtnText}>New Assessment</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={s.secondaryBtn}
+          onPress={() => navigation.navigate('Compare')}
+        >
+          <Text style={s.secondaryBtnText}>Before & After</Text>
         </TouchableOpacity>
       </ScrollView>
 

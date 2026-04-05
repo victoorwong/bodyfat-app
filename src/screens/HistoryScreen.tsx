@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList, Assessment } from '../types';
 import { useHistoryStore } from '../stores/historyStore';
@@ -16,7 +17,7 @@ import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme';
 
 type Props = {
-  navigation: NativeStackNavigationProp<RootStackParamList, 'History' | 'Compare'>;
+  navigation?: any;
 };
 
 const CONFIDENCE_COLORS: Record<string, { bg: string; text: string }> = {
@@ -25,7 +26,9 @@ const CONFIDENCE_COLORS: Record<string, { bg: string; text: string }> = {
   low: { bg: 'rgba(248,113,113,0.15)', text: '#F87171' },
 };
 
-export default function HistoryScreen({ navigation }: Props) {
+export default function HistoryScreen({ navigation: navProp }: Props) {
+  const rootNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = navProp ?? rootNav;
   const { assessments, loadHistory, deleteAssessment } = useHistoryStore();
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
   const { theme } = useTheme();
@@ -167,8 +170,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   backText: { color: theme.accent, fontSize: 15, fontWeight: '600', width: 60 },
   title: { color: theme.text, fontSize: 17, fontWeight: '700' },
-  headerRight: { flexDirection: 'row', gap: 12, alignItems: 'center', justifyContent: 'flex-end', width: 60 },
-  compareText: { color: theme.accent, fontSize: 14, fontWeight: '600' },
+  headerRight: { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'flex-end' },
+  compareText: { color: theme.accent, fontSize: 13, fontWeight: '600' },
   hintText: { color: theme.textMuted, fontSize: 12, textAlign: 'center', marginBottom: 10 },
   list: { paddingHorizontal: 20, paddingBottom: 40 },
   item: {

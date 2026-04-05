@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LineChart } from 'react-native-chart-kit';
 import { Calendar } from 'react-native-calendars';
@@ -17,9 +18,7 @@ import { useHistoryStore } from '../stores/historyStore';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme';
 
-type Props = {
-  navigation: NativeStackNavigationProp<RootStackParamList, 'Progress'>;
-};
+type Props = { navigation?: any };
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -32,7 +31,9 @@ function formatLabel(iso: string) {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-export default function ProgressScreen({ navigation }: Props) {
+export default function ProgressScreen({ navigation: navProp }: Props) {
+  const rootNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = navProp ?? rootNav;
   const { assessments, loadHistory } = useHistoryStore();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const { theme } = useTheme();
