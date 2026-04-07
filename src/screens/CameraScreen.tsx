@@ -21,12 +21,27 @@ type Props = {
   route: RouteProp<RootStackParamList, 'Camera'>;
 };
 
+const FRONT_TIPS = [
+  'Stand 6–8 ft from camera',
+  'Full body visible head to toe',
+  'Arms slightly away from body',
+  'Even lighting, no harsh shadows',
+];
+
+const BACK_TIPS = [
+  'Same distance as front photo',
+  'Full body visible from behind',
+  'Arms slightly away from body',
+  'Same lighting conditions',
+];
+
 export default function CameraScreen({ navigation, route }: Props) {
   const { step } = route.params;
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [isTaking, setIsTaking] = useState(false);
   const [facing, setFacing] = useState<CameraType>('back');
+  const [showGuide, setShowGuide] = useState(true);
   const { setFrontPhoto, setBackPhoto } = useAssessmentStore();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
@@ -84,54 +99,88 @@ export default function CameraScreen({ navigation, route }: Props) {
   };
 
   const isFront = step === 'front';
+  const tips = isFront ? FRONT_TIPS : BACK_TIPS;
 
   return (
     <View style={s.container}>
       <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} />
 
-      {/* Step indicator */}
-      <View style={[s.stepBanner, { top: insets.top + 60 }]}>
-        <View style={s.stepPill}>
-          <View style={[s.stepDot, isFront ? s.stepDotActive : s.stepDotDone]} />
-          <View style={s.stepLine} />
-          <View style={[s.stepDot, !isFront ? s.stepDotActive : s.stepDotInactive]} />
+      {/* Photo guide overlay */}
+      {showGuide && (
+        <View style={StyleSheet.absoluteFill}>
+          <View style={s.guideOverlay}>
+            <View style={[s.guideCard, { marginTop: insets.top + 70 }]}>
+              <Text style={s.guideTitle}>
+                {isFront ? 'Front Photo Tips' : 'Back Photo Tips'}
+              </Text>
+              {tips.map((tip, i) => (
+                <View key={i} style={s.guideTipRow}>
+                  <View style={s.guideTipDot} />
+                  <Text style={s.guideTipText}>{tip}</Text>
+                </View>
+              ))}
+              <TouchableOpacity style={s.guideReadyBtn} onPress={() => setShowGuide(false)}>
+                <Text style={s.guideReadyBtnText}>I'm Ready</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-        <Text style={s.stepLabel}>
-          {isFront ? 'Step 1 of 2 — Front photo' : 'Step 2 of 2 — Back photo'}
-        </Text>
-        <Text style={s.stepHint}>
-          {isFront
-            ? 'Stand facing the camera, full body visible'
-            : 'Turn around, full body visible from behind'}
-        </Text>
-      </View>
+      )}
+
+      {/* Step indicator */}
+      {!showGuide && (
+        <View style={[s.stepBanner, { top: insets.top + 60 }]}>
+          <View style={s.stepPill}>
+            <View style={[s.stepDot, isFront ? s.stepDotActive : s.stepDotDone]} />
+            <View style={s.stepLine} />
+            <View style={[s.stepDot, !isFront ? s.stepDotActive : s.stepDotInactive]} />
+          </View>
+          <Text style={s.stepLabel}>
+            {isFront ? 'Step 1 of 2 — Front photo' : 'Step 2 of 2 — Back photo'}
+          </Text>
+          <Text style={s.stepHint}>
+            {isFront
+              ? 'Stand facing the camera, full body visible'
+              : 'Turn around, full body visible from behind'}
+          </Text>
+        </View>
+      )}
 
       {/* Top bar */}
       <View style={[s.topBar, { top: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.iconBtn}>
           <Text style={s.iconBtnText}>✕</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => setFacing(f => f === 'back' ? 'front' : 'back')} style={s.iconBtn}>
-          <Text style={s.iconBtnText}>⟳</Text>
-        </TouchableOpacity>
+        <View style={s.topBarRight}>
+          {!showGuide && (
+            <TouchableOpacity onPress={() => setShowGuide(true)} style={s.iconBtn}>
+              <Text style={s.iconBtnText}>?</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={() => setFacing(f => f === 'back' ? 'front' : 'back')} style={s.iconBtn}>
+            <Text style={s.iconBtnText}>⟳</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Bottom controls */}
-      <View style={[s.bottomBar, { bottom: insets.bottom + 24 }]}>
-        <TouchableOpacity onPress={handlePickFromGallery} style={s.galleryBtn}>
-          <Text style={s.galleryBtnText}>Gallery</Text>
-        </TouchableOpacity>
+      {!showGuide && (
+        <View style={[s.bottomBar, { bottom: insets.bottom + 24 }]}>
+          <TouchableOpacity onPress={handlePickFromGallery} style={s.galleryBtn}>
+            <Text style={s.galleryBtnText}>Gallery</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={handleCapture}
-          style={[s.captureBtn, isTaking && s.captureBtnDisabled]}
-          disabled={isTaking}
-        >
-          <View style={s.captureInner} />
-        </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleCapture}
+            style={[s.captureBtn, isTaking && s.captureBtnDisabled]}
+            disabled={isTaking}
+          >
+            <View style={s.captureInner} />
+          </TouchableOpacity>
 
-        <View style={s.galleryBtn} />
-      </View>
+          <View style={s.galleryBtn} />
+        </View>
+      )}
     </View>
   );
 }
@@ -156,6 +205,40 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   permissionBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
   backBtn: { marginTop: 8 },
   backBtnText: { color: theme.textSecondary, fontSize: 15 },
+
+  guideOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  guideCard: {
+    backgroundColor: 'rgba(30,30,30,0.97)',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  guideTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 18,
+    textAlign: 'center',
+  },
+  guideTipRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  guideTipDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.accent, flexShrink: 0 },
+  guideTipText: { color: 'rgba(255,255,255,0.85)', fontSize: 14, flex: 1, lineHeight: 20 },
+  guideReadyBtn: {
+    backgroundColor: theme.accent,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  guideReadyBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+
   topBar: {
     position: 'absolute',
     left: 0,
@@ -163,7 +246,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 24,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
+  topBarRight: { flexDirection: 'row', gap: 8 },
   iconBtn: {
     width: 40,
     height: 40,

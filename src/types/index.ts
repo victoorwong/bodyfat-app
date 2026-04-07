@@ -1,10 +1,24 @@
 export type Sex = 'male' | 'female';
+export type UnitSystem = 'metric' | 'imperial';
 
 export interface UserProfile {
-  height: number; // cm
-  weight: number; // kg
+  height: number; // always stored in cm
+  weight: number; // always stored in kg
   age: number;
   sex: Sex;
+  unit?: UnitSystem;
+}
+
+export interface BodyMeasurements {
+  waist?: number;  // stored in cm
+  chest?: number;
+  hips?: number;
+  arms?: number;   // average of both arms
+}
+
+export interface Goal {
+  targetBodyFat: number;
+  deadline?: string; // ISO date string
 }
 
 export type BodyFatCategory =
@@ -56,6 +70,8 @@ export interface Assessment {
   backNormalizedUri?: string;
   userProfile: UserProfile;
   result: AnalysisResult;
+  note?: string;
+  measurements?: BodyMeasurements;
 }
 
 export type RootStackParamList = {

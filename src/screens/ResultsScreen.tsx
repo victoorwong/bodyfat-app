@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,21 @@ import {
   TouchableOpacity,
   Image,
   Share,
+  TextInput,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-import { RootStackParamList, BodyFatCategory, ConfidenceLevel } from '../types';
+import { RootStackParamList, BodyFatCategory, ConfidenceLevel, BodyMeasurements } from '../types';
 import { useHistoryStore } from '../stores/historyStore';
+import { useUserStore } from '../stores/userStore';
 import { useTheme } from '../context/ThemeContext';
 import { Theme } from '../theme';
+import { formatMeasurement, measurementToCm } from '../utils/units';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Results'>;
@@ -41,20 +48,41 @@ const CONFIDENCE_COLORS: Record<ConfidenceLevel, { bg: string; text: string }> =
   low: { bg: 'rgba(248,113,113,0.15)', text: '#F87171' },
 };
 
+const MEASUREMENT_FIELDS: { key: keyof BodyMeasurements; label: string }[] = [
+  { key: 'waist', label: 'Waist' },
+  { key: 'chest', label: 'Chest' },
+  { key: 'hips', label: 'Hips' },
+  { key: 'arms', label: 'Arms (avg)' },
+];
+
 export default function ResultsScreen({ navigation, route }: Props) {
   const { assessmentId } = route.params;
-  const { assessments } = useHistoryStore();
+  const { assessments, updateAssessment } = useHistoryStore();
+  const { unit } = useUserStore();
   const { theme } = useTheme();
   const assessment = assessments.find((a) => a.id === assessmentId);
 
   const s = useMemo(() => makeStyles(theme), [theme]);
+
+  const [note, setNote] = useState(assessment?.note ?? '');
+  const [noteSaved, setNoteSaved] = useState(!!assessment?.note);
+  const [showMeasurements, setShowMeasurements] = useState(false);
+  const [measurements, setMeasurements] = useState<Record<string, string>>(() => {
+    const m = assessment?.measurements ?? {};
+    const result: Record<string, string> = {};
+    MEASUREMENT_FIELDS.forEach(({ key }) => {
+      const val = m[key];
+      result[key] = val !== undefined ? String(unit === 'imperial' ? (val / 2.54).toFixed(1) : val) : '';
+    });
+    return result;
+  });
 
   if (!assessment) {
     return (
       <SafeAreaView style={s.container}>
         <View style={s.errorContainer}>
           <Text style={s.errorText}>Assessment not found.</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Home')}>
+          <TouchableOpacity onPress={() => navigation.navigate('Main')}>
             <Text style={s.homeLink}>Go Home</Text>
           </TouchableOpacity>
         </View>
@@ -70,9 +98,34 @@ export default function ResultsScreen({ navigation, route }: Props) {
   const bf = rawBf.toFixed(1);
   const confidenceStyle = CONFIDENCE_COLORS[result.confidence];
 
+  const handleSaveNote = async () => {
+    await updateAssessment(assessmentId, { note: note.trim() || undefined });
+    setNoteSaved(true);
+  };
+
+  const handleSaveMeasurements = async () => {
+    const saved: BodyMeasurements = {};
+    MEASUREMENT_FIELDS.forEach(({ key }) => {
+      const raw = parseFloat(measurements[key]);
+      if (!isNaN(raw) && raw > 0) {
+        saved[key] = measurementToCm(raw, unit);
+      }
+    });
+    await updateAssessment(assessmentId, { measurements: Object.keys(saved).length > 0 ? saved : undefined });
+    setShowMeasurements(false);
+    Alert.alert('Saved', 'Measurements saved.');
+  };
+
   const handleShare = async () => {
+    const measurementsText = assessment.measurements
+      ? Object.entries(assessment.measurements)
+          .map(([k, v]) => `  ${k}: ${formatMeasurement(v as number, unit)}`)
+          .join('\n')
+      : null;
+    const noteText = assessment.note ? `\nNote: ${assessment.note}` : '';
+    const measText = measurementsText ? `\nMeasurements:\n${measurementsText}` : '';
     await Share.share({
-      message: `My body fat estimate: ${bf}% (${result.category}) via BodyComp AI`,
+      message: `Body Fat Assessment — NattyAI\n\nBody Fat: ${bf}% (${result.category})\nConfidence: ${result.confidence}${noteText}${measText}\n\nCalibrated with: ${userProfile.height}cm · ${userProfile.weight}kg · Age ${userProfile.age}`,
     });
   };
 
@@ -81,7 +134,7 @@ export default function ResultsScreen({ navigation, route }: Props) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
         {/* Header */}
         <View style={s.header}>
-          <TouchableOpacity onPress={() => navigation.navigate('Home')} style={s.doneBtn}>
+          <TouchableOpacity onPress={() => navigation.navigate('Main')} style={s.doneBtn}>
             <Text style={s.doneBtnText}>✕ Done</Text>
           </TouchableOpacity>
           <Text style={s.headerTitle}>Your Results</Text>
@@ -114,6 +167,59 @@ export default function ResultsScreen({ navigation, route }: Props) {
         <View style={s.card}>
           <Text style={s.cardTitle}>Body Fat Scale</Text>
           <GaugeBar bf={rawBf} sex={userProfile.sex} theme={theme} />
+        </View>
+
+        {/* Note input */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Assessment Note</Text>
+          <TextInput
+            style={s.noteInput}
+            value={note}
+            onChangeText={(t) => { setNote(t); setNoteSaved(false); }}
+            placeholder="e.g. End of cut, morning fasted..."
+            placeholderTextColor={theme.textMuted}
+            multiline
+            maxLength={200}
+          />
+          <TouchableOpacity
+            style={[s.saveNoteBtn, noteSaved && s.saveNoteBtnSaved]}
+            onPress={handleSaveNote}
+            disabled={noteSaved && note === (assessment.note ?? '')}
+          >
+            <Text style={[s.saveNoteBtnText, noteSaved && s.saveNoteBtnTextSaved]}>
+              {noteSaved ? 'Saved' : 'Save Note'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Body measurements */}
+        <View style={s.card}>
+          <View style={s.measurementsHeader}>
+            <Text style={s.cardTitle}>Body Measurements</Text>
+            <TouchableOpacity onPress={() => setShowMeasurements(true)}>
+              <Text style={s.editMeasurementsBtn}>
+                {assessment.measurements ? 'Edit' : 'Add'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {assessment.measurements ? (
+            <View style={s.measurementsGrid}>
+              {MEASUREMENT_FIELDS.map(({ key, label }) => {
+                const val = assessment.measurements?.[key];
+                if (val === undefined) return null;
+                return (
+                  <View key={key} style={s.measurementItem}>
+                    <Text style={s.measurementValue}>{formatMeasurement(val, unit)}</Text>
+                    <Text style={s.measurementLabel}>{label}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={s.noMeasurementsText}>
+              Track waist, chest, hips, and arm measurements alongside body fat.
+            </Text>
+          )}
         </View>
 
         {/* Visual indicators */}
@@ -168,6 +274,40 @@ export default function ResultsScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Measurements modal */}
+      <Modal visible={showMeasurements} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={s.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={s.modalContent}>
+            <Text style={s.modalTitle}>Body Measurements</Text>
+            <Text style={s.modalSubtitle}>
+              Enter measurements in {unit === 'imperial' ? 'inches' : 'cm'}
+            </Text>
+            {MEASUREMENT_FIELDS.map(({ key, label }) => (
+              <View key={key}>
+                <Text style={s.inputLabel}>{label}</Text>
+                <TextInput
+                  style={s.input}
+                  value={measurements[key]}
+                  onChangeText={(t) => setMeasurements((prev) => ({ ...prev, [key]: t }))}
+                  keyboardType="decimal-pad"
+                  placeholder={unit === 'imperial' ? 'e.g. 32.5' : 'e.g. 82'}
+                  placeholderTextColor={theme.textMuted}
+                />
+              </View>
+            ))}
+            <TouchableOpacity style={s.saveBtn} onPress={handleSaveMeasurements}>
+              <Text style={s.saveBtnText}>Save Measurements</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.cancelBtn} onPress={() => setShowMeasurements(false)}>
+              <Text style={s.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -296,7 +436,37 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     padding: 20,
     marginBottom: 12,
   },
-  cardTitle: { color: theme.text, fontSize: 15, fontWeight: '700', marginBottom: 16 },
+  cardTitle: { color: theme.text, fontSize: 15, fontWeight: '700', marginBottom: 14 },
+
+  noteInput: {
+    backgroundColor: theme.surface2,
+    borderRadius: 12,
+    padding: 14,
+    color: theme.text,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: theme.border,
+    minHeight: 60,
+    textAlignVertical: 'top',
+    marginBottom: 10,
+  },
+  saveNoteBtn: {
+    backgroundColor: theme.accent,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  saveNoteBtnSaved: { backgroundColor: theme.surface2, borderWidth: 1, borderColor: theme.border },
+  saveNoteBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  saveNoteBtnTextSaved: { color: theme.textSecondary },
+
+  measurementsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  editMeasurementsBtn: { color: theme.accent, fontSize: 14, fontWeight: '600' },
+  measurementsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  measurementItem: { width: '45%', backgroundColor: theme.surface2, borderRadius: 12, padding: 12 },
+  measurementValue: { color: theme.text, fontSize: 18, fontWeight: '700' },
+  measurementLabel: { color: theme.textMuted, fontSize: 12, marginTop: 2 },
+  noMeasurementsText: { color: theme.textSecondary, fontSize: 14, lineHeight: 20 },
 
   indicator: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
   indicatorDot: { width: 6, height: 6, borderRadius: 3, marginTop: 6, flexShrink: 0 },
@@ -338,4 +508,37 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
   },
   historyBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalContent: {
+    backgroundColor: theme.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 28,
+    paddingBottom: 44,
+    borderTopWidth: 1,
+    borderColor: theme.border,
+  },
+  modalTitle: { color: theme.text, fontSize: 22, fontWeight: '800', marginBottom: 4 },
+  modalSubtitle: { color: theme.textSecondary, fontSize: 14, marginBottom: 16 },
+  inputLabel: { color: theme.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 10 },
+  input: {
+    backgroundColor: theme.surface2,
+    borderRadius: 12,
+    padding: 14,
+    color: theme.text,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  saveBtn: {
+    backgroundColor: theme.accent,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  saveBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  cancelBtn: { paddingVertical: 14, alignItems: 'center' },
+  cancelBtnText: { color: theme.textMuted, fontSize: 15 },
 });

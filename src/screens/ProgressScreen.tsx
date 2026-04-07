@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -79,6 +80,28 @@ export default function ProgressScreen({ navigation: navProp }: Props) {
     ? sorted[sorted.length - 1].result.bodyFat - sorted[0].result.bodyFat
     : null;
 
+  const handleExport = async () => {
+    const lines = [
+      'NattyAI — Progress Summary',
+      `Exported: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`,
+      '',
+      `Total assessments: ${assessments.length}`,
+    ];
+    if (sorted.length >= 1) {
+      lines.push(`Starting body fat: ${sorted[0].result.bodyFat.toFixed(1)}% (${toDateString(sorted[0].createdAt)})`);
+      lines.push(`Current body fat: ${sorted[sorted.length - 1].result.bodyFat.toFixed(1)}% (${toDateString(sorted[sorted.length - 1].createdAt)})`);
+    }
+    if (totalChange !== null) {
+      lines.push(`Total change: ${totalChange > 0 ? '+' : ''}${totalChange.toFixed(1)}%`);
+    }
+    lines.push('', 'Assessment History:');
+    sorted.forEach((a) => {
+      const note = a.note ? ` — "${a.note}"` : '';
+      lines.push(`  ${toDateString(a.createdAt)}: ${a.result.bodyFat.toFixed(1)}% (${a.result.category})${note}`);
+    });
+    await Share.share({ message: lines.join('\n') });
+  };
+
   return (
     <SafeAreaView style={s.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
@@ -88,7 +111,13 @@ export default function ProgressScreen({ navigation: navProp }: Props) {
             <Text style={s.backText}>← Back</Text>
           </TouchableOpacity>
           <Text style={s.title}>Progress</Text>
-          <View style={{ width: 60 }} />
+          {hasData ? (
+            <TouchableOpacity onPress={handleExport}>
+              <Text style={s.exportBtn}>Export</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 50 }} />
+          )}
         </View>
 
         {!hasData ? (
@@ -263,6 +292,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   backText: { color: theme.accent, fontSize: 15, fontWeight: '600', width: 60 },
   title: { color: theme.text, fontSize: 17, fontWeight: '700' },
+  exportBtn: { color: theme.accent, fontSize: 14, fontWeight: '600', width: 50, textAlign: 'right' },
   empty: {
     flex: 1,
     alignItems: 'center',

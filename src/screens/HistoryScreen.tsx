@@ -71,6 +71,9 @@ export default function HistoryScreen({ navigation: navProp }: Props) {
           <View style={s.itemContent}>
             <Text style={s.bfText}>{item.result.bodyFat?.toFixed(1) ?? '—'}%</Text>
             <Text style={s.categoryText}>{item.result.category}</Text>
+            {item.note ? (
+              <Text style={s.noteText} numberOfLines={1}>"{item.note}"</Text>
+            ) : null}
             <Text style={s.dateText}>
               {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </Text>
@@ -199,7 +202,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   itemContent: { flex: 1 },
   bfText: { color: theme.text, fontSize: 24, fontWeight: '800' },
   categoryText: { color: theme.textSecondary, fontSize: 13, marginTop: 2 },
-  dateText: { color: theme.textMuted, fontSize: 12, marginTop: 4 },
+  noteText: { color: theme.textSecondary, fontSize: 12, fontStyle: 'italic', marginTop: 2 },
+  dateText: { color: theme.textMuted, fontSize: 12, marginTop: 2 },
   itemRight: { alignItems: 'flex-end', gap: 10 },
   badge: { borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
   badgeText: { fontSize: 11, fontWeight: '700' },

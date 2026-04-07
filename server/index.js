@@ -293,6 +293,6 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 const PORT = process.env.PORT ?? 3000;
 app.listen(PORT, () => {
-  console.log(`BodyComp AI server running on port ${PORT}`);
+  console.log(`NattyAI server running on port ${PORT}`);
   console.log(`Background removal: ${REMOVE_BG_KEY ? 'ENABLED' : 'DISABLED (add REMOVE_BG_API_KEY to .env to enable)'}`);
 });

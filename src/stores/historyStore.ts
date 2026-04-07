@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Assessment } from '../types';
+import { Assessment, BodyMeasurements } from '../types';
 
 const HISTORY_FILE = `${FileSystem.documentDirectory}assessments.json`;
 
@@ -9,6 +9,7 @@ interface HistoryState {
   isLoaded: boolean;
   loadHistory: () => Promise<void>;
   addAssessment: (assessment: Assessment) => Promise<void>;
+  updateAssessment: (id: string, updates: { note?: string; measurements?: BodyMeasurements }) => Promise<void>;
   deleteAssessment: (id: string) => Promise<void>;
   clearHistory: () => Promise<void>;
 }
@@ -43,6 +44,14 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
 
   addAssessment: async (assessment) => {
     const updated = [assessment, ...get().assessments];
+    await writeToDisk(updated);
+    set({ assessments: updated });
+  },
+
+  updateAssessment: async (id, updates) => {
+    const updated = get().assessments.map((a) =>
+      a.id === id ? { ...a, ...updates } : a
+    );
     await writeToDisk(updated);
     set({ assessments: updated });
   },

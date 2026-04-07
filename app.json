@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "bodyfat-app",
-    "slug": "bodyfat-app",
+    "name": "NattyAI",
+    "slug": "nattyai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
