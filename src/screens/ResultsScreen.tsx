@@ -12,7 +12,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Dimensions,
 } from 'react-native';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -66,6 +69,7 @@ export default function ResultsScreen({ navigation, route }: Props) {
 
   const [note, setNote] = useState(assessment?.note ?? '');
   const [noteSaved, setNoteSaved] = useState(!!assessment?.note);
+  const [showNoteModal, setShowNoteModal] = useState(false);
   const [showMeasurements, setShowMeasurements] = useState(false);
   const [measurements, setMeasurements] = useState<Record<string, string>>(() => {
     const m = assessment?.measurements ?? {};
@@ -143,13 +147,31 @@ export default function ResultsScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         </View>
 
-        {/* Main result card */}
-        <View style={[s.resultCard, { borderColor: categoryColor + '60' }]}>
-          <Image source={{ uri: normalizedUri }} style={s.thumbnail} />
-          <View style={s.resultMain}>
-            <Text style={s.bfLabel}>BODY FAT</Text>
-            <Text style={[s.bfValue, { color: categoryColor }]}>{bf}%</Text>
-            <View style={[s.categoryBadge, { backgroundColor: categoryColor + '22', borderColor: categoryColor + '66' }]}>
+        {/* Photos + result hero */}
+        <View style={[s.heroCard, { borderColor: categoryColor + '50' }]}>
+          <View style={s.photosRow}>
+            <View style={s.photoWrap}>
+              <Image source={{ uri: normalizedUri }} style={s.heroPhoto} />
+              <Text style={s.photoLabel}>FRONT</Text>
+            </View>
+            {assessment.backNormalizedUri ? (
+              <View style={s.photoWrap}>
+                <Image source={{ uri: assessment.backNormalizedUri }} style={s.heroPhoto} />
+                <Text style={s.photoLabel}>BACK</Text>
+              </View>
+            ) : (
+              <View style={[s.photoWrap, s.photoWrapEmpty]}>
+                <Text style={s.photoEmptyText}>No back photo</Text>
+              </View>
+            )}
+          </View>
+          <View style={[s.heroDivider, { backgroundColor: categoryColor + '30' }]} />
+          <View style={s.heroStats}>
+            <View style={s.heroStatMain}>
+              <Text style={s.bfLabel}>BODY FAT</Text>
+              <Text style={[s.bfValue, { color: categoryColor }]}>{bf}%</Text>
+            </View>
+            <View style={[s.categoryBadge, { backgroundColor: categoryColor + '22', borderColor: categoryColor + '55' }]}>
               <Text style={[s.categoryText, { color: categoryColor }]}>{result.category}</Text>
             </View>
           </View>
@@ -169,28 +191,22 @@ export default function ResultsScreen({ navigation, route }: Props) {
           <GaugeBar bf={rawBf} sex={userProfile.sex} theme={theme} />
         </View>
 
-        {/* Note input */}
-        <View style={s.card}>
-          <Text style={s.cardTitle}>Assessment Note</Text>
-          <TextInput
-            style={s.noteInput}
-            value={note}
-            onChangeText={(t) => { setNote(t); setNoteSaved(false); }}
-            placeholder="e.g. End of cut, morning fasted..."
-            placeholderTextColor={theme.textMuted}
-            multiline
-            maxLength={200}
-          />
-          <TouchableOpacity
-            style={[s.saveNoteBtn, noteSaved && s.saveNoteBtnSaved]}
-            onPress={handleSaveNote}
-            disabled={noteSaved && note === (assessment.note ?? '')}
-          >
-            <Text style={[s.saveNoteBtnText, noteSaved && s.saveNoteBtnTextSaved]}>
-              {noteSaved ? 'Saved' : 'Save Note'}
-            </Text>
+        {/* Note */}
+        {assessment.note ? (
+          <View style={s.card}>
+            <View style={s.noteHeader}>
+              <Text style={[s.cardTitle, { marginBottom: 0 }]}>Note</Text>
+              <TouchableOpacity onPress={() => setShowNoteModal(true)}>
+                <Text style={s.editMeasurementsBtn}>Edit</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={s.noteText}>{assessment.note}</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={s.addNoteBtn} onPress={() => setShowNoteModal(true)}>
+            <Text style={s.addNoteBtnText}>+ Add Note</Text>
           </TouchableOpacity>
-        </View>
+        )}
 
         {/* Body measurements */}
         <View style={s.card}>
@@ -274,6 +290,37 @@ export default function ResultsScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Note modal */}
+      <Modal visible={showNoteModal} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={s.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={s.modalContent}>
+            <Text style={s.modalTitle}>Assessment Note</Text>
+            <TextInput
+              style={[s.noteInput, { marginTop: 12 }]}
+              value={note}
+              onChangeText={(t) => { setNote(t); setNoteSaved(false); }}
+              placeholder="e.g. End of cut, morning fasted..."
+              placeholderTextColor={theme.textMuted}
+              multiline
+              maxLength={200}
+              autoFocus
+            />
+            <TouchableOpacity style={s.saveBtn} onPress={async () => {
+              await handleSaveNote();
+              setShowNoteModal(false);
+            }}>
+              <Text style={s.saveBtnText}>Save Note</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.cancelBtn} onPress={() => setShowNoteModal(false)}>
+              <Text style={s.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Measurements modal */}
       <Modal visible={showMeasurements} animationType="slide" transparent>
@@ -391,18 +438,29 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   headerTitle: { color: theme.text, fontSize: 17, fontWeight: '700' },
   shareBtn: { color: theme.accent, fontSize: 15, fontWeight: '600' },
 
-  resultCard: {
+  heroCard: {
     marginHorizontal: 20,
     backgroundColor: theme.surface,
     borderRadius: 20,
-    padding: 20,
-    flexDirection: 'row',
-    gap: 16,
     borderWidth: 1.5,
     marginBottom: 12,
+    overflow: 'hidden',
   },
-  thumbnail: { width: 80, height: 100, borderRadius: 12 },
-  resultMain: { flex: 1, justifyContent: 'center' },
+  photosRow: { flexDirection: 'row' },
+  photoWrap: { flex: 1, alignItems: 'center', paddingTop: 16, paddingBottom: 10, gap: 6 },
+  photoWrapEmpty: { justifyContent: 'center', minHeight: 180, backgroundColor: theme.surface2 },
+  heroPhoto: { width: SCREEN_WIDTH / 2 - 32, aspectRatio: 0.75, borderRadius: 12 },
+  photoLabel: { color: theme.textMuted, fontSize: 10, fontWeight: '700', letterSpacing: 1.4 },
+  photoEmptyText: { color: theme.textMuted, fontSize: 13 },
+  heroDivider: { height: 1, marginHorizontal: 16 },
+  heroStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  heroStatMain: { gap: 2 },
   bfLabel: { color: theme.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 1.2 },
   bfValue: { fontSize: 64, fontWeight: '800', lineHeight: 72, letterSpacing: -2 },
   categoryBadge: {
@@ -437,6 +495,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 12,
   },
   cardTitle: { color: theme.text, fontSize: 15, fontWeight: '700', marginBottom: 14 },
+
+  noteHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  noteText: { color: theme.textSecondary, fontSize: 14, lineHeight: 20 },
+  addNoteBtn: {
+    marginHorizontal: 20,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderStyle: 'dashed',
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  addNoteBtnText: { color: theme.textSecondary, fontSize: 14, fontWeight: '600' },
 
   noteInput: {
     backgroundColor: theme.surface2,
